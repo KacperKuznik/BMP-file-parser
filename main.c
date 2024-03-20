@@ -60,9 +60,34 @@ struct tagBITMAPINFOHEADER readInfoHeader(FILE *file)
     return bitmapInfoHeader;
 }
 
-void parseFile(char *filename)
+void copyHeader(FILE *file, FILE *outputFile, DWORD length)
+{
+    unsigned char *header = (unsigned char *)malloc(length);
+    if (header == NULL)
+    {
+        printf("Memory allocation failed.\n");
+        return;
+    }
+
+    fseek(file, 0, SEEK_SET);
+    fread(header, sizeof(unsigned char), length, file);
+    if (outputFile != NULL)
+    {
+        fwrite(header, sizeof(unsigned char), length, outputFile);
+    }
+    free(header);
+}
+void parseFile(char *filename, char *output)
 {
     FILE *file = fopen(filename, "r");
+    FILE *outputFile = fopen(output, "wb");
+
+    if (file == NULL)
+    {
+        printf("Error opening file.\n");
+        return;
+    }
+
     struct tagBITMAPFILEHEADER bitmapHeader = readHeader(file);
     struct tagBITMAPINFOHEADER bitmapInfoHeader = readInfoHeader(file);
 
@@ -86,10 +111,43 @@ void parseFile(char *filename)
     printf("\t%-18s %d\n", "biClrUsed:", bitmapInfoHeader.biClrUsed);
     printf("\t%-18s %d\n", "biClrImportant:", bitmapInfoHeader.biClrImportant);
 
+    if (bitmapInfoHeader.biCompression == 0 && bitmapInfoHeader.biBitCount == 24)
+    {
+
+        if (outputFile != NULL)
+        {
+            copyHeader(file, outputFile, bitmapHeader.bfOffBits);
+        }
+        int rowLength = ((bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth + 31) / 32) * 4;
+        int padding = (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8) - rowLength;
+        unsigned char *row = (unsigned char *)malloc(rowLength);
+
+        fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
+        for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
+        {
+            fread(row, sizeof(unsigned char), rowLength, file);
+            for (int idx = 0; idx < rowLength; idx += 3)
+            {
+                int blue = row[idx];
+                int green = row[idx + 1];
+                int red = row[idx + 2];
+                // todo make histogram
+
+                if (outputFile != NULL)
+                {
+                    unsigned char gray = (unsigned char)((blue + green + red) / 3);
+                    unsigned char grayData[3] = {gray, gray, gray};
+                    fwrite(grayData, sizeof(unsigned char), 3, outputFile);
+                }
+            }
+            fseek(file, padding, SEEK_CUR);
+        }
+    }
     fclose(file);
+    fclose(outputFile);
 }
 
 int main(int argc, char *argv[])
 {
-    parseFile(argv[1]);
+    parseFile(argv[1], argv[2]);
 }
