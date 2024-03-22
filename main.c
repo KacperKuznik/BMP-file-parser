@@ -80,19 +80,22 @@ void copyHeader(FILE *file, FILE *outputFile, DWORD length)
 
 void printHistogram(int blueArr[], int greenArr[], int redArr[], int height, int width)
 {
-  float max = height * width;
-  printf("Blue:\n");
-  for(int i = 0; i < 16; i++){
-    printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (blueArr[i]/max) * 100);
-  }
-  printf("Green:\n");
-  for(int i = 0; i < 16; i++){
-    printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (greenArr[i]/max) * 100);
-  }
-  printf("Red:\n");
-  for(int i = 0; i < 16; i++){
-    printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (redArr[i]/max) * 100);
-  }
+    float max = height * width;
+    printf("Blue:\n");
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (blueArr[i] / max) * 100);
+    }
+    printf("Green:\n");
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (greenArr[i] / max) * 100);
+    }
+    printf("Red:\n");
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (redArr[i] / max) * 100);
+    }
 }
 
 void parseFile(char *filename, char *output)
@@ -117,7 +120,7 @@ void parseFile(char *filename, char *output)
     printf("\t%-18s %d\n", "bfOffBits:", bitmapHeader.bfOffBits);
 
     printf("BITMAPINFOHEADER:\n");
-    printf("\t%-18s %04X\n", "biSize:", bitmapInfoHeader.biSize);
+    printf("\t%-18s %d\n", "biSize:", bitmapInfoHeader.biSize);
     printf("\t%-18s %d\n", "biWidth:", bitmapInfoHeader.biWidth);
     printf("\t%-18s %d\n", "biHeight:", bitmapInfoHeader.biHeight);
     printf("\t%-18s %d\n", "biPlanes:", bitmapInfoHeader.biPlanes);
@@ -140,24 +143,24 @@ void parseFile(char *filename, char *output)
         int padding = (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8) - rowLength;
         unsigned char *row = (unsigned char *)malloc(rowLength);
 
-        int blueArray[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-        int greenArray[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-        int redArray[16] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+        int blueArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        int greenArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+        int redArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
         for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
         {
             fread(row, sizeof(unsigned char), rowLength, file);
             for (int idx = 0; idx < rowLength; idx += 3)
-            {   
+            {
                 int blue = row[idx];
                 int green = row[idx + 1];
                 int red = row[idx + 2];
 
                 // todo make histogram
-                blueArray[blue/16]++;
-                greenArray[green/16]++;
-                redArray[red/16]++;
+                blueArray[blue / 16]++;
+                greenArray[green / 16]++;
+                redArray[red / 16]++;
 
                 if (outputFile != NULL)
                 {
@@ -174,7 +177,6 @@ void parseFile(char *filename, char *output)
     fclose(file);
     fclose(outputFile);
 }
-
 
 int main(int argc, char *argv[])
 {
