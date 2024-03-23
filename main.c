@@ -184,14 +184,18 @@ void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struc
 
             if(textIndex < strlen(text)){
                 unsigned char* value = malloc(sizeof(unsigned char) + 1);
+                printf("before readpointer: %d\n", ftell(file));
                 fread(value, sizeof(unsigned char), 1, file);
+                printf("after readpointer: %d\n", ftell(file));
                 fseek(file, -1, SEEK_CUR);
                 printf("%d  ", value[0]);
+                printf("after fseek pointer: %d\n", ftell(file));
                 if ((encodeChar[encodeIndex] & 1) != (value[0] & 1)) {
                     value[0] ^= 1;
                 }
                 printf("%d\n", value[0]);
                 fwrite(value, sizeof(unsigned char), 1, file);
+                printf("after write pointer: %d\n", ftell(file));
                 encodeIndex++;
                 if(encodeIndex >= 8){
                     intToBin((int)text[textIndex], encodeChar);
