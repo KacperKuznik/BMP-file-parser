@@ -108,12 +108,11 @@ int binToInt(char bits[]){
     return value;
 }
 
-unsigned char binToChar(char bits[]){
-    int value = 0;
+void intToBin(int value, char* bits){
     for(int i = 0; i < 8; i++){
-        value += bits[i] & 1 ? pow(2, i) : 0;
+        bits[i] = value & 1;
+        value >>= 1;
     }
-    return (char)value;
 }
 
 void parseFile(char *filename, char *output, char text[])
@@ -206,12 +205,18 @@ void parseFile(char *filename, char *output, char text[])
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
         fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
 
+
         // encoding/decoding message
         unsigned char hiddenChar[8];
         unsigned char* decodedMessage = malloc(sizeof(unsigned char) * 256);
         int charCount = 0;
         int charIndex = 0;
         int messageLength = -1;
+
+        int textIndex = 0;
+        char encodeChar[8];
+        intToBin(strlen(text), encodeChar);
+        int encodeIndex = 0;
 
         for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
         {
@@ -225,12 +230,13 @@ void parseFile(char *filename, char *output, char text[])
                 hiddenChar[charIndex] = row[idx];
                 charIndex++;
                 if(charIndex >= 8){
+                    // decoding length
                     if(messageLength == -1){
                         messageLength = binToInt(hiddenChar);
-                        printf("Hidden length: %d\n", messageLength);
                     }
+                    // decoding character
                     else if(charCount < messageLength){
-                        unsigned char c = binToChar(hiddenChar);
+                        unsigned char c = (char)binToInt(hiddenChar);
                         decodedMessage[charCount] = c;
                         charCount++;
                     }
@@ -238,15 +244,27 @@ void parseFile(char *filename, char *output, char text[])
                     charIndex = 0;
                 }
 
-                if (outputFile != NULL)
-                {
+                if(outputFile != NULL && text != NULL && textIndex < strlen(text)){
+                    unsigned char value[1];
+                    fread(value, sizeof(unsigned char), 1, outputFile);
+                    printf("Before: %d\n", value[0]);
+                    fseek(outputFile, -1, SEEK_CUR);
+                    if((encodeChar[encodeIndex] & 1) && (value[0] & 0)){
+                        value[0] += 1;
+                    }
+                    else if((encodeChar[encodeIndex] & 0) && (value[0] & 1)){
+                        value[0] -= 1;
+                    }
+                    printf("Changed: %d\n", value[0]);
+                    fwrite(value, sizeof(unsigned char), 1, outputFile);
+                    encodeIndex++;
+                    if(encodeIndex >= 8){
+                        intToBin((int)text[textIndex], encodeChar);
+                        textIndex++;
+                        encodeIndex = 0;
+                    }
                 }
-            }
 
-            unsigned char paddingData[1] = {0};
-            for (int i = 0; i < padding; i++)
-            {
-                fwrite(paddingData, sizeof(unsigned char), 1, outputFile);
             }
         }
         printf("Decoded message: %s\n", decodedMessage);
