@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
@@ -85,21 +86,37 @@ void printHistogram(int blueArr[], int greenArr[], int redArr[], int height, int
     printf("Blue:\n");
     for (int i = 0; i < 16; i++)
     {
-        printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (blueArr[i] / max) * 100);
+        printf("%d-%d: %.2f%%\n", i * 16, (i + 1) * 16 - 1, (blueArr[i] / max) * 100);
     }
     printf("Green:\n");
     for (int i = 0; i < 16; i++)
     {
-        printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (greenArr[i] / max) * 100);
+        printf("%d-%d: %.2f%%\n", i * 16, (i + 1) * 16 - 1, (greenArr[i] / max) * 100);
     }
     printf("Red:\n");
     for (int i = 0; i < 16; i++)
     {
-        printf("%d-%d: %.2f%\n", i * 16, (i + 1) * 16 - 1, (redArr[i] / max) * 100);
+        printf("%d-%d: %.2f%%\n", i * 16, (i + 1) * 16 - 1, (redArr[i] / max) * 100);
     }
 }
 
-void parseFile(char *filename, char *output)
+int binToInt(char bits[]){
+    int value = 0;
+    for(int i = 0; i < 8; i++){
+        value += bits[i] & 1 ? pow(2, i) : 0;
+    }
+    return value;
+}
+
+unsigned char binToChar(char bits[]){
+    int value = 0;
+    for(int i = 0; i < 8; i++){
+        value += bits[i] & 1 ? pow(2, i) : 0;
+    }
+    return (char)value;
+}
+
+void parseFile(char *filename, char *output, char text[])
 {
     FILE *file = fopen(filename, "r+b");
     FILE *outputFile = fopen(output, "wb");
@@ -144,8 +161,6 @@ void parseFile(char *filename, char *output)
         int padding = rowLength - (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8);
         unsigned char *row = (unsigned char *)malloc(rowLength * sizeof(unsigned char));
 
-        printf("Length: %d  NotPadded: %d  Padding: %d\n", ((bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth + 31) / 32) * 4, (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8), rowLength - (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8));
-
         int blueArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         int greenArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         int redArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -153,6 +168,7 @@ void parseFile(char *filename, char *output)
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
         fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
 
+        // changing to gray
         for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
         {
 
@@ -186,6 +202,55 @@ void parseFile(char *filename, char *output)
             }
         }
         printHistogram(blueArray, greenArray, redArray, bitmapInfoHeader.biHeight, bitmapInfoHeader.biWidth);
+        
+        fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
+        fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
+
+        // encoding/decoding message
+        unsigned char hiddenChar[8];
+        unsigned char* decodedMessage = malloc(sizeof(unsigned char) * 256);
+        int charCount = 0;
+        int charIndex = 0;
+        int messageLength = -1;
+
+        for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
+        {
+            fseek(file, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
+            fseek(outputFile, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
+
+            fread(row, sizeof(unsigned char), rowLength, file);
+
+            for (int idx = 0; idx < rowLength - padding; idx++)
+            {
+                hiddenChar[charIndex] = row[idx];
+                charIndex++;
+                if(charIndex >= 8){
+                    if(messageLength == -1){
+                        messageLength = binToInt(hiddenChar);
+                        printf("Hidden length: %d\n", messageLength);
+                    }
+                    else if(charCount < messageLength){
+                        unsigned char c = binToChar(hiddenChar);
+                        decodedMessage[charCount] = c;
+                        charCount++;
+                    }
+                    memset(hiddenChar, '\0', 8);
+                    charIndex = 0;
+                }
+
+                if (outputFile != NULL)
+                {
+                }
+            }
+
+            unsigned char paddingData[1] = {0};
+            for (int i = 0; i < padding; i++)
+            {
+                fwrite(paddingData, sizeof(unsigned char), 1, outputFile);
+            }
+        }
+        printf("Decoded message: %s\n", decodedMessage);
+        free(decodedMessage);
     }
     fclose(file);
     fclose(outputFile);
@@ -193,5 +258,5 @@ void parseFile(char *filename, char *output)
 
 int main(int argc, char *argv[])
 {
-    parseFile(argv[1], argv[2]);
+    parseFile(argv[1], argv[2], argv[3]);
 }
