@@ -184,9 +184,9 @@ void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struc
 
             if(textIndex < strlen(text)){
                 unsigned char* value = malloc(sizeof(unsigned char) + 1);
-                printf("before readpointer: %d\n", ftell(file));
+                printf("before read pointer: %d\n", ftell(file));
                 fread(value, sizeof(unsigned char), 1, file);
-                printf("after readpointer: %d\n", ftell(file));
+                printf("after read pointer: %d\n", ftell(file));
                 fseek(file, -1, SEEK_CUR);
                 printf("%d  ", value[0]);
                 printf("after fseek pointer: %d\n", ftell(file));
