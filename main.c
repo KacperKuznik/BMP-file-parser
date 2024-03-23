@@ -115,6 +115,97 @@ void intToBin(int value, char* bits){
     }
 }
 
+char * decodeText(FILE* file, struct tagBITMAPFILEHEADER header, struct tagBITMAPINFOHEADER infoHeader){
+    int rowLength = ((infoHeader.biBitCount * infoHeader.biWidth + 31) / 32) * 4;
+    int padding = rowLength - (infoHeader.biBitCount * infoHeader.biWidth / 8);
+    unsigned char *row = (unsigned char *)malloc(rowLength * sizeof(unsigned char));
+
+    unsigned char hiddenChar[8];
+    unsigned char* decodedMessage = malloc(sizeof(unsigned char) * 256);
+    int charCount = 0;
+    int charIndex = 0;
+    int messageLength = -1;
+
+    for (int rowIndex = 0; rowIndex < infoHeader.biHeight; rowIndex++)
+    {
+        fseek(file, rowIndex * rowLength + header.bfOffBits, SEEK_SET);
+        fread(row, sizeof(unsigned char), rowLength, file);
+
+        for (int idx = 0; idx < rowLength - padding; idx++)
+        {
+            hiddenChar[charIndex] = row[idx];
+            charIndex++;
+            if(charIndex >= 8 && (messageLength == -1 || charCount < messageLength)){
+                // decoding length
+                if(messageLength == -1){
+                    messageLength = binToInt(hiddenChar);
+                    for(int i = 0; i < 8; i++){
+                        printf("%d", hiddenChar[i] & 1, binToInt(hiddenChar));
+                    }
+                    printf(" -> %d\n", messageLength);
+                }
+                // decoding character
+                else{
+                    unsigned char c = (char)binToInt(hiddenChar);
+                    decodedMessage[charCount] = c;
+                    charCount++;
+                    for(int i = 0; i < 8; i++){
+                        printf("%d", hiddenChar[i] & 1, binToInt(hiddenChar));
+                    }
+                    printf(" -> %c\n", (char)c);
+                }
+                memset(hiddenChar, '\0', 8);
+                charIndex = 0;
+            }
+        }
+    }
+    free(row);
+    return decodedMessage;
+}
+
+void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struct tagBITMAPINFOHEADER infoHeader){
+    int rowLength = ((infoHeader.biBitCount * infoHeader.biWidth + 31) / 32) * 4;
+    int padding = rowLength - (infoHeader.biBitCount * infoHeader.biWidth / 8);
+    unsigned char *row = (unsigned char *)malloc(rowLength * sizeof(unsigned char));
+
+    int textIndex = 0;
+    char encodeChar[8];
+    intToBin(strlen(text), encodeChar);
+    int encodeIndex = 0;
+
+    for (int rowIndex = 0; rowIndex < infoHeader.biHeight; rowIndex++)
+    {
+        fseek(file, rowIndex * rowLength + header.bfOffBits, SEEK_SET);
+
+        fread(row, sizeof(unsigned char), rowLength, file);
+
+        for (int idx = 0; idx < rowLength - padding; idx++)
+        {
+
+            if(textIndex < strlen(text)){
+                unsigned char* value = malloc(sizeof(unsigned char) + 1);
+                fread(value, sizeof(unsigned char), 1, file);
+                fseek(file, -1, SEEK_CUR);
+                printf("%d  ", value[0]);
+                if ((encodeChar[encodeIndex] & 1) != (value[0] & 1)) {
+                    value[0] ^= 1;
+                }
+                printf("%d\n", value[0]);
+                fwrite(value, sizeof(unsigned char), 1, file);
+                encodeIndex++;
+                if(encodeIndex >= 8){
+                    intToBin((int)text[textIndex], encodeChar);
+                    textIndex++;
+                    encodeIndex = 0;
+                 }
+                free(value);
+            }
+
+        }
+    }
+    free(row);
+}
+
 void parseFile(char *filename, char *output, char text[])
 {
     FILE *file = fopen(filename, "r+b");
@@ -165,15 +256,18 @@ void parseFile(char *filename, char *output, char text[])
         int redArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
-        fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
+        if(outputFile != NULL){
+            fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
+        }
 
         // changing to gray
         for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
         {
 
             fseek(file, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
-            fseek(outputFile, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
-
+            if(outputFile != NULL){
+                fseek(outputFile, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
+            }
             fread(row, sizeof(unsigned char), rowLength, file);
 
             for (int idx = 0; idx < rowLength - padding; idx += 3)
@@ -193,82 +287,36 @@ void parseFile(char *filename, char *output, char text[])
                     fwrite(grayData, sizeof(unsigned char), 3, outputFile);
                 }
             }
-
-            unsigned char paddingData[1] = {0};
-            for (int i = 0; i < padding; i++)
-            {
-                fwrite(paddingData, sizeof(unsigned char), 1, outputFile);
+            
+            if(outputFile != NULL){
+                unsigned char paddingData[1] = {0};
+                for (int i = 0; i < padding; i++)
+                {
+                    fwrite(paddingData, sizeof(unsigned char), 1, outputFile);
+                }
             }
+
         }
         printHistogram(blueArray, greenArray, redArray, bitmapInfoHeader.biHeight, bitmapInfoHeader.biWidth);
         
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
-        fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
-
-
-        // encoding/decoding message
-        unsigned char hiddenChar[8];
-        unsigned char* decodedMessage = malloc(sizeof(unsigned char) * 256);
-        int charCount = 0;
-        int charIndex = 0;
-        int messageLength = -1;
-
-        int textIndex = 0;
-        char encodeChar[8];
-        intToBin(strlen(text), encodeChar);
-        int encodeIndex = 0;
-
-        for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
-        {
-            fseek(file, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
-            fseek(outputFile, rowIndex * rowLength + bitmapHeader.bfOffBits, SEEK_SET);
-
-            fread(row, sizeof(unsigned char), rowLength, file);
-
-            for (int idx = 0; idx < rowLength - padding; idx++)
-            {
-                hiddenChar[charIndex] = row[idx];
-                charIndex++;
-                if(charIndex >= 8){
-                    // decoding length
-                    if(messageLength == -1){
-                        messageLength = binToInt(hiddenChar);
-                    }
-                    // decoding character
-                    else if(charCount < messageLength){
-                        unsigned char c = (char)binToInt(hiddenChar);
-                        decodedMessage[charCount] = c;
-                        charCount++;
-                    }
-                    memset(hiddenChar, '\0', 8);
-                    charIndex = 0;
-                }
-
-                if(outputFile != NULL && text != NULL && textIndex < strlen(text)){
-                    unsigned char value[1];
-                    fread(value, sizeof(unsigned char), 1, outputFile);
-                    printf("Before: %d\n", value[0]);
-                    fseek(outputFile, -1, SEEK_CUR);
-                    if((encodeChar[encodeIndex] & 1) && (value[0] & 0)){
-                        value[0] += 1;
-                    }
-                    else if((encodeChar[encodeIndex] & 0) && (value[0] & 1)){
-                        value[0] -= 1;
-                    }
-                    printf("Changed: %d\n", value[0]);
-                    fwrite(value, sizeof(unsigned char), 1, outputFile);
-                    encodeIndex++;
-                    if(encodeIndex >= 8){
-                        intToBin((int)text[textIndex], encodeChar);
-                        textIndex++;
-                        encodeIndex = 0;
-                    }
-                }
-
-            }
+        if(outputFile != NULL && text != NULL){
+            fseek(outputFile, bitmapHeader.bfOffBits, SEEK_SET);
         }
-        printf("Decoded message: %s\n", decodedMessage);
-        free(decodedMessage);
+
+
+        char c;
+        printf("Decode hidden message? [Y/n]\n");
+        scanf("%c", &c);
+        if(c == 'y' || c == 'Y'){
+            char* decodedMessage = decodeText(file, bitmapHeader, bitmapInfoHeader);
+            printf("Decoded message: %s\n", decodedMessage);
+            free(decodedMessage);
+        }
+        if(outputFile != NULL && text != NULL){
+            encodeText(outputFile, text, bitmapHeader, bitmapInfoHeader);
+            printf("Encoded message\n");
+        }
     }
     fclose(file);
     fclose(outputFile);
