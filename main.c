@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
@@ -140,14 +141,16 @@ void parseFile(char *filename, char *output)
             copyHeader(file, outputFile, bitmapHeader.bfOffBits);
         }
         int rowLength = ((bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth + 31) / 32) * 4;
-        int padding = (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8) - rowLength;
+        int padding = rowLength - (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8);
         unsigned char *row = (unsigned char *)malloc(rowLength);
+        printf("Length: %d  NotPadded: %d  Padding: %d\n", ((bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth + 31) / 32) * 4, (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8), rowLength - (bitmapInfoHeader.biBitCount * bitmapInfoHeader.biWidth / 8));
 
         int blueArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         int greenArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
         int redArray[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
+
         for (int rowIndex = 0; rowIndex < bitmapInfoHeader.biHeight; rowIndex++)
         {
             fread(row, sizeof(unsigned char), rowLength, file);
@@ -157,7 +160,6 @@ void parseFile(char *filename, char *output)
                 int green = row[idx + 1];
                 int red = row[idx + 2];
 
-                // todo make histogram
                 blueArray[blue / 16]++;
                 greenArray[green / 16]++;
                 redArray[red / 16]++;
@@ -169,9 +171,14 @@ void parseFile(char *filename, char *output)
                     fwrite(grayData, sizeof(unsigned char), 3, outputFile);
                 }
             }
-            fseek(file, padding, SEEK_CUR);
+            unsigned char paddingData[1] = {0};
+            //printf("%d\n", padding);
+            for(int i = 0; i < padding; i++){
+                fwrite(paddingData, sizeof(unsigned char), 1, outputFile);
+            }
+            fseek(file, rowIndex * (rowLength+padding) + bitmapHeader.bfOffBits, SEEK_SET);
+            fseek(outputFile, ftell(file), SEEK_SET);
         }
-        printf("%d", ftell(file));
         printHistogram(blueArray, greenArray, redArray, bitmapInfoHeader.biHeight, bitmapInfoHeader.biWidth);
     }
     fclose(file);
