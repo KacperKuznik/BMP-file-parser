@@ -135,24 +135,19 @@ char * decodeText(FILE* file, struct tagBITMAPFILEHEADER header, struct tagBITMA
         {
             hiddenChar[charIndex] = row[idx];
             charIndex++;
-            if(charIndex >= 8 && (messageLength == -1 || charCount < messageLength)){
-                // decoding length
+            if(charIndex >= 8){
                 if(messageLength == -1){
                     messageLength = binToInt(hiddenChar);
-                    for(int i = 0; i < 8; i++){
-                        printf("%d", hiddenChar[i] & 1, binToInt(hiddenChar));
-                    }
-                    printf(" -> %d\n", messageLength);
                 }
-                // decoding character
-                else{
-                    unsigned char c = (char)binToInt(hiddenChar);
+                else if(charCount < messageLength){
+                    unsigned char c = (unsigned char)binToInt(hiddenChar);
                     decodedMessage[charCount] = c;
                     charCount++;
-                    for(int i = 0; i < 8; i++){
-                        printf("%d", hiddenChar[i] & 1, binToInt(hiddenChar));
+                    if(charCount == messageLength){
+                      decodedMessage[charCount] = '\0';
+                      free(row);
+                      return decodedMessage;
                     }
-                    printf(" -> %c\n", (char)c);
                 }
                 memset(hiddenChar, '\0', 8);
                 charIndex = 0;
@@ -166,36 +161,28 @@ char * decodeText(FILE* file, struct tagBITMAPFILEHEADER header, struct tagBITMA
 void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struct tagBITMAPINFOHEADER infoHeader){
     int rowLength = ((infoHeader.biBitCount * infoHeader.biWidth + 31) / 32) * 4;
     int padding = rowLength - (infoHeader.biBitCount * infoHeader.biWidth / 8);
-    unsigned char *row = (unsigned char *)malloc(rowLength * sizeof(unsigned char));
 
     int textIndex = 0;
     char encodeChar[8];
     intToBin(strlen(text), encodeChar);
     int encodeIndex = 0;
 
+    fseek(file, (header.bfOffBits + 4), SEEK_SET);
+
     for (int rowIndex = 0; rowIndex < infoHeader.biHeight; rowIndex++)
     {
         fseek(file, rowIndex * rowLength + header.bfOffBits, SEEK_SET);
 
-        fread(row, sizeof(unsigned char), rowLength, file);
-
         for (int idx = 0; idx < rowLength - padding; idx++)
         {
-
-            if(textIndex < strlen(text)){
+            if(textIndex <= strlen(text)){
                 unsigned char* value = malloc(sizeof(unsigned char) + 1);
-                printf("before read pointer: %d\n", ftell(file));
                 fread(value, sizeof(unsigned char), 1, file);
-                printf("after read pointer: %d\n", ftell(file));
                 fseek(file, -1, SEEK_CUR);
-                printf("%d  ", value[0]);
-                printf("after fseek pointer: %d\n", ftell(file));
                 if ((encodeChar[encodeIndex] & 1) != (value[0] & 1)) {
                     value[0] ^= 1;
                 }
-                printf("%d\n", value[0]);
                 fwrite(value, sizeof(unsigned char), 1, file);
-                printf("after write pointer: %d\n", ftell(file));
                 encodeIndex++;
                 if(encodeIndex >= 8){
                     intToBin((int)text[textIndex], encodeChar);
@@ -204,16 +191,14 @@ void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struc
                  }
                 free(value);
             }
-
         }
     }
-    free(row);
 }
 
 void parseFile(char *filename, char *output, char text[])
 {
     FILE *file = fopen(filename, "r+b");
-    FILE *outputFile = fopen(output, "wb");
+    FILE *outputFile = fopen(output, "w+b");
 
     if (file == NULL)
     {
@@ -319,7 +304,7 @@ void parseFile(char *filename, char *output, char text[])
         }
         if(outputFile != NULL && text != NULL){
             encodeText(outputFile, text, bitmapHeader, bitmapInfoHeader);
-            printf("Encoded message\n");
+            printf("Message has been encoded.\n");
         }
     }
     fclose(file);
