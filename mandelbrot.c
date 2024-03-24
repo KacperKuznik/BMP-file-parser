@@ -53,8 +53,8 @@ void createHeader(FILE *file, int width, int height)
     bmiHeader.biBitCount = 24;
     bmiHeader.biCompression = 0;
     bmiHeader.biSizeImage = bmiHeader.biWidth * bmiHeader.biHeight;
-    bmiHeader.biXPelsPerMeter = 900;
-    bmiHeader.biYPelsPerMeter = 900;
+    bmiHeader.biXPelsPerMeter = 3000;
+    bmiHeader.biYPelsPerMeter = 3000;
     bmiHeader.biClrUsed = 0;
     bmiHeader.biClrImportant = 0;
 
@@ -137,6 +137,9 @@ void parseFile(int width, int height, char *outputFilename)
     float imagOutMax = 1;
     float imagOutMin = -1;
 
+    int rowLength = ((24 * width + 31) / 32) * 4;
+    int padding = rowLength - (width * 3);
+
     for (int y = 0; y < height; y++)
     {
         for (int x = 0; x < width; x++)
@@ -146,6 +149,11 @@ void parseFile(int width, int height, char *outputFilename)
             unsigned char color = mapToGray(iterations);
             unsigned char pixel[3] = {color, color, color};
             fwrite(pixel, sizeof(unsigned char), 3, file);
+        }
+        unsigned char paddingData[1] = {0};
+        for (int i = 0; i < padding; i++)
+        {
+            fwrite(paddingData, sizeof(unsigned char), 1, file);
         }
     }
 
