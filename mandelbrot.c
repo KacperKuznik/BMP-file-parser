@@ -50,7 +50,7 @@ void createHeader(FILE *file, int width, int height)
     bmiHeader.biWidth = width;
     bmiHeader.biHeight = height;
     bmiHeader.biPlanes = 1;
-    bmiHeader.biBitCount = 8;
+    bmiHeader.biBitCount = 24;
     bmiHeader.biCompression = 0;
     bmiHeader.biSizeImage = bmiHeader.biWidth * bmiHeader.biHeight;
     bmiHeader.biXPelsPerMeter = 900;
@@ -119,7 +119,7 @@ int mapToGray(int iterations)
     return (int)(normalized * 255);
 }
 
-void parseFile(char *outputFilename)
+void parseFile(int width, int height, char *outputFilename)
 {
     FILE *file = fopen(outputFilename, "wb");
 
@@ -128,8 +128,6 @@ void parseFile(char *outputFilename)
         printf("Error opening file.\n");
         return;
     }
-    int width = 256;
-    int height = 256;
 
     createHeader(file, width, height);
 
@@ -146,13 +144,9 @@ void parseFile(char *outputFilename)
             double complex c = ((x * (realOutMax - realOutMin)) / width + realOutMin) + I * ((y * (imagOutMax - imagOutMin)) / height + imagOutMin);
             int iterations = mandelbrot(c);
             unsigned char color = mapToGray(iterations);
-            fwrite(&color, sizeof(unsigned char), 1, file);
+            unsigned char pixel[3] = {color, color, color};
+            fwrite(pixel, sizeof(unsigned char), 3, file);
         }
-    }
-    for (int i = 0; i < 2000; i++)
-    {
-        unsigned char color = 255;
-        fwrite(&color, sizeof(unsigned char), 1, file);
     }
 
     fclose(file);
@@ -160,5 +154,5 @@ void parseFile(char *outputFilename)
 
 int main(int argc, char *argv[])
 {
-    parseFile(argv[1]);
+    parseFile(atoi(argv[1]), atoi(argv[2]), argv[3]);
 }
