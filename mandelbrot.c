@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <complex.h>
 
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
@@ -33,6 +34,7 @@ typedef struct tagBITMAPINFOHEADER
 } BITMAPINFOHEADER, *LPBITMAPINFOHEADER, *PBITMAPINFOHEADER;
 
 #define HEADERLENGTH 54;
+#define MAX_ITERATIONS 100
 
 void createHeader(FILE *file, int width, int height)
 {
@@ -48,11 +50,11 @@ void createHeader(FILE *file, int width, int height)
     bmiHeader.biWidth = width;
     bmiHeader.biHeight = height;
     bmiHeader.biPlanes = 1;
-    bmiHeader.biBitCount = 1;
+    bmiHeader.biBitCount = 8;
     bmiHeader.biCompression = 0;
     bmiHeader.biSizeImage = bmiHeader.biWidth * bmiHeader.biHeight;
-    bmiHeader.biXPelsPerMeter = 2835;
-    bmiHeader.biYPelsPerMeter = 2835;
+    bmiHeader.biXPelsPerMeter = 900;
+    bmiHeader.biYPelsPerMeter = 900;
     bmiHeader.biClrUsed = 0;
     bmiHeader.biClrImportant = 0;
 
@@ -97,6 +99,26 @@ void createHeader(FILE *file, int width, int height)
     fwrite(&bmiHeader.biClrImportant, sizeof(DWORD), 1, file);
 }
 
+int mandelbrot(double complex c)
+{
+    double complex z = 0;
+    for (int i = 0; i < MAX_ITERATIONS; i++)
+    {
+        z = z * z + c;
+        if (cabs(z) > 2)
+        {
+            return i;
+        }
+    }
+    return MAX_ITERATIONS;
+}
+
+int mapToGray(int iterations)
+{
+    double normalized = (double)iterations / MAX_ITERATIONS;
+    return (int)(normalized * 255);
+}
+
 void parseFile(char *outputFilename)
 {
     FILE *file = fopen(outputFilename, "wb");
@@ -111,10 +133,26 @@ void parseFile(char *outputFilename)
 
     createHeader(file, width, height);
 
-    for (int i = 0; i < width * height / 2; i++)
+    float realOutMax = 1;
+    float realOutMin = -2;
+
+    float imagOutMax = 1;
+    float imagOutMin = -1;
+
+    for (int y = 0; y < height; y++)
     {
-        char color[1] = {i % 250};
-        fwrite(color, sizeof(unsigned char), 1, file);
+        for (int x = 0; x < width; x++)
+        {
+            double complex c = ((x * (realOutMax - realOutMin)) / width + realOutMin) + I * ((y * (imagOutMax - imagOutMin)) / height + imagOutMin);
+            int iterations = mandelbrot(c);
+            unsigned char color = mapToGray(iterations);
+            fwrite(&color, sizeof(unsigned char), 1, file);
+        }
+    }
+    for (int i = 0; i < 2000; i++)
+    {
+        unsigned char color = 255;
+        fwrite(&color, sizeof(unsigned char), 1, file);
     }
 
     fclose(file);
