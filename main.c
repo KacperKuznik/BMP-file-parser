@@ -167,7 +167,7 @@ void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struc
     intToBin(strlen(text), encodeChar);
     int encodeIndex = 0;
 
-    fseek(file, (header.bfOffBits + 4), SEEK_SET);
+    //fseek(file, header.bfOffBits, SEEK_SET);
 
     for (int rowIndex = 0; rowIndex < infoHeader.biHeight; rowIndex++)
     {
