@@ -162,5 +162,7 @@ void parseFile(int width, int height, char *outputFilename)
 
 int main(int argc, char *argv[])
 {
-    parseFile(atoi(argv[1]), atoi(argv[2]), argv[3]);
+    int width = atoi(argv[1]);
+    int height = atoi(argv[2]);
+    parseFile(width, height, argv[3]);
 }
