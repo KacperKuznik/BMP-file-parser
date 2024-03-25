@@ -199,7 +199,7 @@ void encodeText(FILE* file, char* text, struct tagBITMAPFILEHEADER header, struc
 void parseFile(char *filename, char *output, char text[])
 {
     FILE *file = fopen(filename, "r+b");
-    FILE *outputFile;
+    FILE *outputFile = NULL;
     if(output != NULL)
     {
        outputFile = fopen(output, "w+b");
