@@ -64,6 +64,9 @@ struct tagBITMAPINFOHEADER readInfoHeader(FILE *file)
 
 void copyHeader(FILE *file, FILE *outputFile, DWORD length)
 {
+    if(outputFile == NULL){
+        return;
+    }
     unsigned char *header = (unsigned char *)malloc(length);
     if (header == NULL)
     {
@@ -73,10 +76,8 @@ void copyHeader(FILE *file, FILE *outputFile, DWORD length)
 
     fseek(file, 0, SEEK_SET);
     fread(header, sizeof(unsigned char), length, file);
-    if (outputFile != NULL)
-    {
-        fwrite(header, sizeof(unsigned char), length, outputFile);
-    }
+    fwrite(header, sizeof(unsigned char), length, outputFile);
+
     free(header);
 }
 
@@ -286,6 +287,7 @@ void parseFile(char *filename, char *output, char text[])
             }
 
         }
+        free(row);
         printHistogram(blueArray, greenArray, redArray, bitmapInfoHeader.biHeight, bitmapInfoHeader.biWidth);
         
         fseek(file, bitmapHeader.bfOffBits, SEEK_SET);
@@ -308,10 +310,14 @@ void parseFile(char *filename, char *output, char text[])
         }
     }
     fclose(file);
-    fclose(outputFile);
+    if(outputFile != NULL){
+        fclose(outputFile);
+    }
 }
 
 int main(int argc, char *argv[])
 {
-    parseFile(argv[1], argv[2], argv[3]);
+    if(argv[1] != NULL){
+        parseFile(argv[1], argv[2], argv[3]);
+    }
 }
