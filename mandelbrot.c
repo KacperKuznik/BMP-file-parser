@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <complex.h>
 
+/*
+    IMPORTANT
+    compile code with '-lm' attribute
+    e.g. gcc -o mandelbrot mandelbrot.c -lm
+*/
+
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
 typedef int32_t LONG;

@@ -4,6 +4,12 @@
 #include <string.h>
 #include <math.h>
 
+/*
+    IMPORTANT
+    compile code with '-lm' attribute
+    e.g. gcc -o main main.c -lm
+*/
+
 typedef uint16_t WORD;
 typedef uint32_t DWORD;
 typedef int32_t LONG;
